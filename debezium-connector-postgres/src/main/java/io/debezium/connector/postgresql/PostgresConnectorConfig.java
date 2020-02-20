@@ -112,6 +112,72 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     }
 
     /**
+     * The set of predefined BinaryHandlingMode options or aliases
+     */
+    public enum BinaryHandlingMode implements EnumeratedValue {
+
+        /**
+         * Represents Binary value as java
+         */
+        JAVA("java"),
+
+        /**
+         * Represents Binary value as base64
+         */
+        BASE64("base64");
+
+        /**
+         * Represents Binary value as hex (base16)
+         */
+        HEX("hex");
+
+        private final String value;
+
+        BinaryHandlingMode(String value) {
+            this.value = value;
+        }
+
+        @Override
+        public String getValue() {
+            return value;
+        }
+
+        /**
+         * Determine if the supplied values is one of the predefined options
+         *
+         * @param value the configuration property value ; may not be null
+         * @return the matching option, or null if the match is not found
+         */
+        public static BinaryHandlingMode parse(String value) {
+            if (value == null) {
+                return null;
+            }
+            value = value.trim();
+            for (BinaryHandlingMode option : BinaryHandlingMode.values()) {
+                if (option.getValue().equalsIgnoreCase(value)) {
+                    return option;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Determine if the supplied values is one of the predefined options
+         *
+         * @param value the configuration property value ; may not be null
+         * @param defaultValue the default value ; may be null
+         * @return the matching option or null if the match is not found and non-null default is invalid
+         */
+        public static BinaryHandlingMode parse(String value, String defaultValue) {
+            BinaryHandlingMode mode = parse(value);
+            if (mode == null && defaultValue != null) {
+                mode = parse(defaultValue);
+            }
+            return mode;
+        }
+    }
+
+    /**
      * Defines modes of representation of {@code interval} datatype
      */
     public enum IntervalHandlingMode implements EnumeratedValue {
@@ -793,6 +859,16 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                     + "'json' represents values as string-ified JSON (default)"
                     + "'map' represents values as a key/value map");
 
+    public static final Field BINARY_HANDLING_MODE = Field.create("binary.handling.mode")
+            .withDisplayName("Binary Handling")
+            .withEnum(BinaryHandlingMode.class, BinaryHandlingMode.JSON)
+            .withWidth(Width.MEDIUM)
+            .withImportance(Importance.LOW)
+            .withDescription("Specify how binary (bytea, numeric) columns should be represented in change events, including:"
+                    + "'java' represents binary data as native Java binary type (default)"
+                    + "'base64' represents binary data as base64-encoded"
+                    + "'hex' represents binary data as hex-encoded (base16)");
+
     public static final Field INTERVAL_HANDLING_MODE = Field.create("interval.handling.mode")
             .withDisplayName("Interval Handling")
             .withEnum(IntervalHandlingMode.class, IntervalHandlingMode.NUMERIC)
@@ -898,7 +974,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             SCHEMA_WHITELIST,
             SCHEMA_BLACKLIST, TABLE_WHITELIST, TABLE_BLACKLIST, MSG_KEY_COLUMNS,
             COLUMN_BLACKLIST, SNAPSHOT_MODE, TIME_PRECISION_MODE, DECIMAL_HANDLING_MODE, HSTORE_HANDLING_MODE,
-            INTERVAL_HANDLING_MODE, SSL_MODE, SSL_CLIENT_CERT, SSL_CLIENT_KEY_PASSWORD,
+            BINARY_HANDLING_MODE, INTERVAL_HANDLING_MODE, SSL_MODE, SSL_CLIENT_CERT, SSL_CLIENT_KEY_PASSWORD,
             SSL_ROOT_CERT, SSL_CLIENT_KEY, RelationalDatabaseConnectorConfig.SNAPSHOT_LOCK_TIMEOUT_MS, SSL_SOCKET_FACTORY,
             STATUS_UPDATE_INTERVAL_MS, TCP_KEEPALIVE, INCLUDE_UNKNOWN_DATATYPES,
             RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE, SCHEMA_REFRESH_MODE, CommonConnectorConfig.TOMBSTONES_ON_DELETE,
@@ -906,6 +982,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             XMIN_FETCH_INTERVAL, TOASTED_VALUE_PLACEHOLDER, SNAPSHOT_MODE_CLASS, CommonConnectorConfig.SOURCE_STRUCT_MAKER_VERSION);
 
     private final HStoreHandlingMode hStoreHandlingMode;
+    private final BinaryHandlingMode binaryHandlingMode;
     private final IntervalHandlingMode intervalHandlingMode;
     private final SnapshotMode snapshotMode;
     private final SchemaRefreshMode schemaRefreshMode;
@@ -921,6 +998,9 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         String hstoreHandlingModeStr = config.getString(PostgresConnectorConfig.HSTORE_HANDLING_MODE);
         HStoreHandlingMode hStoreHandlingMode = HStoreHandlingMode.parse(hstoreHandlingModeStr);
         this.hStoreHandlingMode = hStoreHandlingMode;
+        String binaryHandlingModeStr = config.getString(PostgresConnectorConfig.BINARY_HANDLING_MODE);
+        BinaryHandlingMode binaryHandlingMode = BinaryHandlingMode.parse(binaryHandlingModeStr);
+        this.binaryHandlingMode = binaryHandlingMode;
         this.intervalHandlingMode = IntervalHandlingMode.parse(config.getString(PostgresConnectorConfig.INTERVAL_HANDLING_MODE));
         this.snapshotMode = SnapshotMode.parse(config.getString(SNAPSHOT_MODE));
         this.schemaRefreshMode = SchemaRefreshMode.parse(config.getString(SCHEMA_REFRESH_MODE));
@@ -976,6 +1056,10 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
 
     protected HStoreHandlingMode hStoreHandlingMode() {
         return hStoreHandlingMode;
+    }
+
+    protected BinaryHandlingMode binaryHandlingMode() {
+        return binaryHandlingMode;
     }
 
     protected IntervalHandlingMode intervalHandlingMode() {
@@ -1057,7 +1141,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         Field.group(config, "Connector", CommonConnectorConfig.POLL_INTERVAL_MS, CommonConnectorConfig.MAX_BATCH_SIZE, CommonConnectorConfig.MAX_QUEUE_SIZE,
                 CommonConnectorConfig.SNAPSHOT_DELAY_MS, CommonConnectorConfig.SNAPSHOT_FETCH_SIZE,
                 SNAPSHOT_MODE, RelationalDatabaseConnectorConfig.SNAPSHOT_LOCK_TIMEOUT_MS, TIME_PRECISION_MODE, DECIMAL_HANDLING_MODE, HSTORE_HANDLING_MODE,
-                INTERVAL_HANDLING_MODE, SCHEMA_REFRESH_MODE, SNAPSHOT_MODE_CLASS);
+                BINARY_HANDLING_MODE, INTERVAL_HANDLING_MODE, SCHEMA_REFRESH_MODE, SNAPSHOT_MODE_CLASS);
 
         return config;
     }

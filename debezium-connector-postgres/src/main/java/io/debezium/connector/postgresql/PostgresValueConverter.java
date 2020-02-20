@@ -45,6 +45,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig.HStoreHandlingMode;
+import io.debezium.connector.postgresql.PostgresConnectorConfig.BinaryHandlingMode;
 import io.debezium.connector.postgresql.PostgresConnectorConfig.IntervalHandlingMode;
 import io.debezium.connector.postgresql.data.Ltree;
 import io.debezium.connector.postgresql.proto.PgProto;
@@ -121,6 +122,7 @@ public class PostgresValueConverter extends JdbcValueConverters {
 
     private final TypeRegistry typeRegistry;
     private final HStoreHandlingMode hStoreMode;
+    private final BinaryHandlingMode binaryMode;
     private final IntervalHandlingMode intervalMode;
 
     /**
@@ -136,13 +138,15 @@ public class PostgresValueConverter extends JdbcValueConverters {
     protected PostgresValueConverter(Charset databaseCharset, DecimalMode decimalMode,
                                      TemporalPrecisionMode temporalPrecisionMode, ZoneOffset defaultOffset,
                                      BigIntUnsignedMode bigIntUnsignedMode, boolean includeUnknownDatatypes, TypeRegistry typeRegistry,
-                                     HStoreHandlingMode hStoreMode, IntervalHandlingMode intervalMode, byte[] toastPlaceholder) {
+                                     HStoreHandlingMode hStoreMode, BinaryHandlingMode binaryMode, IntervalHandlingMode intervalMode,
+                                     byte[] toastPlaceholder) {
         super(decimalMode, temporalPrecisionMode, defaultOffset, null, bigIntUnsignedMode);
         this.databaseCharset = databaseCharset;
         this.jsonFactory = new JsonFactory();
         this.includeUnknownDatatypes = includeUnknownDatatypes;
         this.typeRegistry = typeRegistry;
         this.hStoreMode = hStoreMode;
+        this.binaryMode = binaryMode;
         this.intervalMode = intervalMode;
         this.toastPlaceholderBinary = toastPlaceholder;
         this.toastPlaceholderString = new String(toastPlaceholder);
@@ -352,7 +356,7 @@ public class PostgresValueConverter extends JdbcValueConverters {
             case PgOid.NUMERIC:
                 return (data) -> convertDecimal(column, fieldDefn, data, decimalMode);
             case PgOid.BYTEA:
-                return data -> convertBinary(column, fieldDefn, data);
+                return data -> convertBinary(column, fieldDefn, data, binaryMode);
             case PgOid.INT2_ARRAY:
             case PgOid.INT4_ARRAY:
             case PgOid.INT8_ARRAY:
@@ -884,7 +888,7 @@ public class PostgresValueConverter extends JdbcValueConverters {
      * @throws IllegalArgumentException if the value could not be converted but the column does not allow nulls
      */
     @Override
-    protected Object convertBinary(Column column, Field fieldDefn, Object data) {
+    protected Object convertBinary(Column column, Field fieldDefn, Object data, BinaryHandlingMode mode) {
         if (data == UnchangedToastedReplicationMessageColumn.UNCHANGED_TOAST_VALUE) {
             return toastPlaceholderBinary;
         }
